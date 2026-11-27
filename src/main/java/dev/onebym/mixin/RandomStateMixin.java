@@ -39,5 +39,6 @@ abstract class RandomStateMixin {
                 current,
                 new TerrainSampler(seed, config)
         ));
+        TerrainRouterRegistry.logSamplerActivation();
     }
 }
