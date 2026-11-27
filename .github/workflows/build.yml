@@ -6,6 +6,10 @@ on:
     paths:
       - '1B1M-prototype.zip'
       - '.github/workflows/build.yml'
+      - 'src/**'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - 'settings.gradle'
   pull_request:
   workflow_dispatch:
 
@@ -28,33 +32,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s 1B1M-prototype.zip
-          unzip -oq 1B1M-prototype.zip -d .
+          if [ -s 1B1M-prototype.zip ] && [ ! -d src/main/java ]; then
+            unzip -oq 1B1M-prototype.zip -d .
+          fi
           test -f build.gradle
           test -f settings.gradle
           test -d src/main/java
-          # Minecraft 26.1+ is unobfuscated; Loom uses implementation for mod dependencies.
           sed -i 's/modImplementation/implementation/g' build.gradle
-          # Run the prototype's assertion-based test runner as part of check/build.
-          cat >> build.gradle <<'GRADLE'
+          if ! grep -q "tasks.register('verifyCore'" build.gradle; then
+            cat >> build.gradle <<'GRADLE'
 
-          tasks.named('test') {
-              enabled = false
-          }
-
+          tasks.named('test') { enabled = false }
           tasks.register('verifyCore', JavaExec) {
               group = 'verification'
-              description = 'Runs the standalone 1B1M core verification suite.'
               dependsOn tasks.named('testClasses')
               classpath = sourceSets.test.runtimeClasspath
               mainClass = 'dev.onebym.core.PrototypeTests'
               jvmArgs '-ea'
           }
-
-          tasks.named('check') {
-              dependsOn tasks.named('verifyCore')
-          }
+          tasks.named('check') { dependsOn tasks.named('verifyCore') }
           GRADLE
+          fi
 
       - name: Set up Java 25
         uses: actions/setup-java@v5
@@ -67,17 +65,26 @@ jobs:
         with:
           gradle-version: '9.8.0'
 
-      - name: Inspect extracted build configuration and tests
+      - name: Inspect Minecraft 26.3 worldgen classes
         shell: bash
         run: |
-          echo '--- build.gradle ---'
-          sed -n '1,220p' build.gradle
-          echo '--- gradle.properties ---'
-          cat gradle.properties
-          echo '--- settings.gradle ---'
-          cat settings.gradle
-          echo '--- Java sources ---'
-          find src -type f -maxdepth 8 -print
+          set -euo pipefail
+          echo '--- cached Minecraft jars ---'
+          find "$HOME/.gradle/caches" -type f -name '*.jar' | grep -Ei 'minecraft|client|merged' | head -80 || true
+          while IFS= read -r jarfile; do
+            if jar tf "$jarfile" 2>/dev/null | grep -q 'NoiseBasedChunkGenerator.class'; then
+              echo "--- WORLDGEN CLASS JAR: $jarfile ---"
+              for cls in \
+                net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator \
+                net.minecraft.world.level.levelgen.DensityFunction \
+                net.minecraft.world.level.levelgen.NoiseRouter \
+                net.minecraft.world.level.levelgen.RandomState \
+                net.minecraft.world.level.levelgen.NoiseChunk; do
+                echo "--- javap $cls ---"
+                javap -classpath "$jarfile" -p "$cls" 2>&1 || true
+              done
+            fi
+          done < <(find "$HOME/.gradle/caches" -type f -name '*.jar')
 
       - name: Build and run verification
         run: gradle --no-daemon clean build
