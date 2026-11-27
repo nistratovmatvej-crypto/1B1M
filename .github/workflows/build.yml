@@ -1,0 +1,57 @@
+name: 1B1M Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '1B1M-prototype.zip'
+      - '.github/workflows/build.yml'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: 1b1m-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Minecraft 26.3 / Fabric / Java 25
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Extract prototype sources
+        shell: bash
+        run: |
+          test -s 1B1M-prototype.zip
+          unzip -oq 1B1M-prototype.zip -d .
+          test -f build.gradle
+          test -f settings.gradle
+          test -d src/main/java
+
+      - name: Build and run verification
+        run: gradle --no-daemon clean build
+
+      - name: Upload mod JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: 1B1M-${{ github.sha }}
+          path: build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 14
