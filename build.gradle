@@ -1,0 +1,30 @@
+plugins { id 'net.fabricmc.fabric-loom' version '1.19-SNAPSHOT' }
+version = project.mod_version
+group = project.maven_group
+base { archivesName = project.archives_base_name }
+loom { splitEnvironmentSourceSets(); mods { onebym { sourceSet sourceSets.main } } }
+repositories {}
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) }; withSourcesJar() }
+processResources { inputs.property 'version', project.version; filesMatching('fabric.mod.json') { expand 'version': project.version } }
+
+tasks.named('test') {
+    enabled = false
+}
+
+tasks.register('verifyCore', JavaExec) {
+    group = 'verification'
+    description = 'Runs the standalone 1B1M core verification suite.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.onebym.core.PrototypeTests'
+    jvmArgs '-ea'
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyCore')
+}

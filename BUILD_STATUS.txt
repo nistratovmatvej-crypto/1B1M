@@ -1,0 +1,7 @@
+Validation performed in this environment:
+- Java 21 compilation of the standalone algorithm core: PASS
+- PrototypeTests (seed determinism, seed divergence, density bounds, tree height range, config validation): PASS
+- PrototypeRunner 100,000-sample smoke benchmark: PASS
+- Latest observed benchmark: ~1.55 million samples/sec (environment-specific; not Minecraft FPS or chunk-generation speed)
+- Fabric/MC build: NOT RUN. Environment only has Java 21 and no Gradle installation; Minecraft 26.3 requires Java 25.
+- In-game terrain integration: NOT IMPLEMENTED yet. The current Fabric initializer reads configuration; prototype terrain sampler remains standalone.

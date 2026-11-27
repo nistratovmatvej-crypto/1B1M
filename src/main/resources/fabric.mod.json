@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "onebym",
+  "version": "0.1.0-prototype",
+  "name": "1B1M",
+  "description": "Vanilla-style world-generation overhaul prototype.",
+  "authors": ["1B1M Team"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": { "main": ["dev.onebym.OneByM"] },
+  "depends": { "fabricloader": ">=0.20.1", "minecraft": "26.3", "java": ">=25", "fabric-api": "*" }
+}
