@@ -64,7 +64,7 @@ jobs:
         with:
           gradle-version: '9.8.0'
 
-      - name: Inspect DensityFunction API and generator fill
+      - name: Inspect DensityFunction API
         shell: bash
         run: |
           set -euo pipefail
@@ -82,8 +82,50 @@ jobs:
             javap -classpath "$MC" -p "$cls" 2>&1 || true
           done
 
-      - name: Build and run verification
+      - name: Build and run core verification
         run: gradle --no-daemon clean build
+
+      - name: Verify packaged mod
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' -print -quit)"
+          test -n "$JAR"
+          jar tf "$JAR" | grep -q 'onebym.mixins.json'
+          jar tf "$JAR" | grep -q 'dev/onebym/mixin/RandomStateMixin.class'
+          jar tf "$JAR" | grep -q 'dev/onebym/worldgen/TerrainDensitySampler.class'
+          unzip -p "$JAR" fabric.mod.json
+          echo "Verified mod JAR: $JAR"
+
+      - name: Runtime Overworld worldgen smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p run/server
+          printf 'eula=true\n' > run/server/eula.txt
+          cat > run/server/server.properties <<'PROPERTIES'
+          online-mode=false
+          server-port=25575
+          level-name=1b1m-smoke-world
+          level-seed=777
+          level-type=minecraft:normal
+          view-distance=2
+          simulation-distance=2
+          spawn-protection=0
+          max-players=1
+          PROPERTIES
+          set +e
+          timeout 180s gradle --no-daemon runServer > server-smoke.log 2>&1
+          server_exit=$?
+          set -e
+          cat server-smoke.log
+          if [ "$server_exit" -ne 0 ] && [ "$server_exit" -ne 124 ]; then
+            echo "Server smoke test exited with $server_exit"
+            exit "$server_exit"
+          fi
+          grep -q 'Done (' server-smoke.log
+          grep -q '1B1M TerrainSampler is now modifying the compiled Overworld final_density sampler' server-smoke.log
+          echo 'PASS: Fabric server started and invoked the 1B1M final-density sampler hook.'
 
       - name: Publish extracted source tree
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
