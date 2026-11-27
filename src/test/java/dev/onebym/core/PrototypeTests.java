@@ -34,10 +34,10 @@ public final class PrototypeTests {
             // Expected validation failure.
         }
 
-        DensitySampler flatVanilla = new DensitySampler() {
+        DensitySampler verticalLinear = new DensitySampler() {
             @Override
             public float sampleValue(SamplerContext context, int x, int y, int z) {
-                return 0.25f;
+                return 0.5f - y * 0.01f;
             }
 
             @Override
@@ -49,14 +49,31 @@ public final class PrototypeTests {
                 DensitySampler.sampleVolumeNaive(context, buffer, volume, this);
             }
         };
-        TerrainDensitySampler integrated = new TerrainDensitySampler(flatVanilla, a);
+
+        TerrainDensitySampler integrated = new TerrainDensitySampler(verticalLinear, a);
         int sampleX = 1200;
         int sampleZ = -840;
-        float actual = integrated.sampleValue(SamplerContext.EMPTY_UNCACHED, sampleX, 70, sampleZ);
-        float expected = 0.25f + TerrainDensitySampler.terrainOffset(a, sampleX, sampleZ);
-        assert Math.abs(actual - expected) < 1e-6 : "TerrainSampler must modify the density field";
-        assert Float.isFinite(actual) : "integrated density must remain finite";
+        int displacement = TerrainDensitySampler.terrainDisplacement(a, sampleX, sampleZ);
+        assert displacement >= -24 && displacement <= 24 : "vertical displacement must be bounded";
+        assert displacement != 0 : "test point must exercise terrain displacement";
 
-        System.out.println("PASS: seed determinism, seed variation, density bounds, tree heights, config validation, density integration");
+        float actual = integrated.sampleValue(
+                SamplerContext.EMPTY_UNCACHED, sampleX, 70, sampleZ);
+        float expected = verticalLinear.sampleValue(
+                SamplerContext.EMPTY_UNCACHED, sampleX, 70 - displacement, sampleZ);
+        assert Math.abs(actual - expected) < 1e-6
+                : "terrain must translate the vanilla density vertically, not add a density bias";
+
+        DensityVolume volume = new DensityVolume(
+                1, 3, 1, sampleX, 69, sampleZ, 1, 1, 1);
+        DensityBuffer buffer = DensityBuffer.createUnpooled(volume.size());
+        integrated.sampleVolume(SamplerContext.EMPTY_UNCACHED, buffer, volume);
+        float volumeActual = buffer.get(volume.indexUnchecked(0, 1, 0));
+        float volumeExpected = verticalLinear.sampleValue(
+                SamplerContext.EMPTY_UNCACHED, sampleX, 70 - displacement, sampleZ);
+        assert Math.abs(volumeActual - volumeExpected) < 1e-5
+                : "bulk sampling must preserve vertical displacement";
+
+        System.out.println("PASS: seed determinism, seed variation, density bounds, tree heights, config validation, bounded vertical density translation, optimized bulk sampling");
     }
 }
