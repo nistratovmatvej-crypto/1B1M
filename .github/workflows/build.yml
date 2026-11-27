@@ -34,7 +34,27 @@ jobs:
           test -f settings.gradle
           test -d src/main/java
           # Minecraft 26.1+ is unobfuscated; Loom no longer provides modImplementation.
-          sed -i -E 's/^([[:space:]]*)modImplementation([[:space:]])/\1implementation\2/' build.gradle
+          sed -i -E 's/^([[:space:]]*)modImplementation([[:space:]])/\\1implementation\\2/' build.gradle
+          # The prototype uses a standalone assertion-based test runner, not JUnit.
+          cat >> build.gradle <<'GRADLE'
+
+          tasks.named('test') {
+              enabled = false
+          }
+
+          tasks.register('verifyCore', JavaExec) {
+              group = 'verification'
+              description = 'Runs the standalone 1B1M core verification suite.'
+              dependsOn tasks.named('testClasses')
+              classpath = sourceSets.test.runtimeClasspath
+              mainClass = 'dev.onebym.core.PrototypeTests'
+              jvmArgs '-ea'
+          }
+
+          tasks.named('check') {
+              dependsOn tasks.named('verifyCore')
+          }
+          GRADLE
 
       - name: Set up Java 25
         uses: actions/setup-java@v5
@@ -47,15 +67,17 @@ jobs:
         with:
           gradle-version: '9.8.0'
 
-      - name: Inspect extracted build configuration
+      - name: Inspect extracted build configuration and tests
         shell: bash
         run: |
           echo '--- build.gradle ---'
-          sed -n '1,180p' build.gradle
+          sed -n '1,220p' build.gradle
           echo '--- gradle.properties ---'
           cat gradle.properties
           echo '--- settings.gradle ---'
           cat settings.gradle
+          echo '--- PrototypeTests.java ---'
+          sed -n '1,260p' src/test/java/dev/onebym/core/PrototypeTests.java
 
       - name: Build and run verification
         run: gradle --no-daemon clean build
