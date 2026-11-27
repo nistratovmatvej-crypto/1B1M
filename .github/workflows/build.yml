@@ -45,6 +45,16 @@ jobs:
         with:
           gradle-version: '9.8.0'
 
+      - name: Inspect extracted build configuration
+        shell: bash
+        run: |
+          echo '--- build.gradle ---'
+          sed -n '1,180p' build.gradle
+          echo '--- gradle.properties ---'
+          cat gradle.properties
+          echo '--- settings.gradle ---'
+          cat settings.gradle
+
       - name: Build and run verification
         run: gradle --no-daemon clean build
 
