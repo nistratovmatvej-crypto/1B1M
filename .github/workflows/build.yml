@@ -32,9 +32,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -s 1B1M-prototype.zip ] && [ ! -d src/main/java ]; then
-            unzip -oq 1B1M-prototype.zip -d .
-          fi
+          if [ -s 1B1M-prototype.zip ] && [ ! -d src/main/java ]; then unzip -oq 1B1M-prototype.zip -d .; fi
           test -f build.gradle
           test -f settings.gradle
           test -d src/main/java
@@ -65,26 +63,29 @@ jobs:
         with:
           gradle-version: '9.8.0'
 
-      - name: Inspect Minecraft 26.3 worldgen classes
+      - name: Inspect DensityFunction API and generator fill
         shell: bash
         run: |
           set -euo pipefail
-          echo '--- cached Minecraft jars ---'
-          find "$HOME/.gradle/caches" -type f -name '*.jar' | grep -Ei 'minecraft|client|merged' | head -80 || true
-          while IFS= read -r jarfile; do
-            if jar tf "$jarfile" 2>/dev/null | grep -q 'NoiseBasedChunkGenerator.class'; then
-              echo "--- WORLDGEN CLASS JAR: $jarfile ---"
-              for cls in \
-                net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator \
-                net.minecraft.world.level.levelgen.DensityFunction \
-                net.minecraft.world.level.levelgen.NoiseRouter \
-                net.minecraft.world.level.levelgen.RandomState \
-                net.minecraft.world.level.levelgen.NoiseChunk; do
-                echo "--- javap $cls ---"
-                javap -classpath "$jarfile" -p "$cls" 2>&1 || true
-              done
-            fi
-          done < <(find "$HOME/.gradle/caches" -type f -name '*.jar')
+          MC="$HOME/.gradle/caches/fabric-loom/26.3/minecraft-client.jar"
+          test -f "$MC"
+          for cls in \
+            net.minecraft.world.level.levelgen.densityfunction.DensityFunction \
+            net.minecraft.world.level.levelgen.densityfunction.DensitySampler \
+            net.minecraft.world.level.levelgen.densityfunction.DensitySamplerSet \
+            net.minecraft.world.level.levelgen.densityfunction.DensityVolume \
+            net.minecraft.world.level.levelgen.densityfunction.SamplerContext \
+            net.minecraft.world.level.levelgen.densityfunction.DensityFunctionCompiler \
+            net.minecraft.world.level.levelgen.NoiseRouter \
+            net.minecraft.world.level.levelgen.RandomState \
+            net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator; do
+            echo "--- javap $cls ---"
+            javap -classpath "$MC" -p "$cls" 2>&1 || true
+          done
+          echo '--- doFill bytecode ---'
+          javap -classpath "$MC" -p -c net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator 2>&1 | sed -n '/private void doFill(/,/^  [a-zA-Z].*);/p' | head -300
+          echo '--- DensityFunction bytecode declarations ---'
+          javap -classpath "$MC" -p -c net.minecraft.world.level.levelgen.densityfunction.DensityFunction 2>&1 | head -260
 
       - name: Build and run verification
         run: gradle --no-daemon clean build
