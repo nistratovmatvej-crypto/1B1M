@@ -33,9 +33,9 @@ jobs:
           test -f build.gradle
           test -f settings.gradle
           test -d src/main/java
-          # Minecraft 26.1+ is unobfuscated; Loom no longer provides modImplementation.
-          sed -i -E 's/^([[:space:]]*)modImplementation([[:space:]])/\\1implementation\\2/' build.gradle
-          # The prototype uses a standalone assertion-based test runner, not JUnit.
+          # Minecraft 26.1+ is unobfuscated; Loom uses implementation for mod dependencies.
+          sed -i 's/modImplementation/implementation/g' build.gradle
+          # Run the prototype's assertion-based test runner as part of check/build.
           cat >> build.gradle <<'GRADLE'
 
           tasks.named('test') {
@@ -76,8 +76,8 @@ jobs:
           cat gradle.properties
           echo '--- settings.gradle ---'
           cat settings.gradle
-          echo '--- PrototypeTests.java ---'
-          sed -n '1,260p' src/test/java/dev/onebym/core/PrototypeTests.java
+          echo '--- Java sources ---'
+          find src -type f -maxdepth 8 -print
 
       - name: Build and run verification
         run: gradle --no-daemon clean build
