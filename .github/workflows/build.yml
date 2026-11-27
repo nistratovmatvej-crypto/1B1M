@@ -17,13 +17,14 @@ permissions:
   contents: write
 
 concurrency:
-  group: 1b1m-${{ github.ref }}
-  cancel-in-progress: true
+  group: 1b1m-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   build:
     name: Minecraft 26.3 / Fabric / Java 25
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -70,22 +71,16 @@ jobs:
           MC="$HOME/.gradle/caches/fabric-loom/26.3/minecraft-client.jar"
           test -f "$MC"
           for cls in \
+            net.minecraft.world.level.levelgen.NoiseGeneratorSettings \
             net.minecraft.world.level.levelgen.densityfunction.DensityFunction \
             net.minecraft.world.level.levelgen.densityfunction.DensitySampler \
-            net.minecraft.world.level.levelgen.densityfunction.DensitySamplerSet \
+            net.minecraft.world.level.levelgen.densityfunction.DensityBuffer \
             net.minecraft.world.level.levelgen.densityfunction.DensityVolume \
-            net.minecraft.world.level.levelgen.densityfunction.SamplerContext \
-            net.minecraft.world.level.levelgen.densityfunction.DensityFunctionCompiler \
             net.minecraft.world.level.levelgen.NoiseRouter \
-            net.minecraft.world.level.levelgen.RandomState \
-            net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator; do
+            net.minecraft.world.level.levelgen.RandomState; do
             echo "--- javap $cls ---"
             javap -classpath "$MC" -p "$cls" 2>&1 || true
           done
-          echo '--- doFill bytecode ---'
-          javap -classpath "$MC" -p -c net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator 2>&1 | sed -n '/private void doFill(/,/^  [a-zA-Z].*);/p' | head -300
-          echo '--- DensityFunction bytecode declarations ---'
-          javap -classpath "$MC" -p -c net.minecraft.world.level.levelgen.densityfunction.DensityFunction 2>&1 | head -260
 
       - name: Build and run verification
         run: gradle --no-daemon clean build
