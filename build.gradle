@@ -2,7 +2,18 @@ plugins { id 'net.fabricmc.fabric-loom' version '1.19-SNAPSHOT' }
 version = project.mod_version
 group = project.maven_group
 base { archivesName = project.archives_base_name }
-loom { splitEnvironmentSourceSets(); mods { onebym { sourceSet sourceSets.main } } }
+loom {
+    splitEnvironmentSourceSets()
+    mods { onebym { sourceSet sourceSets.main } }
+    runs {
+        server {
+            server()
+            name = "1B1M Worldgen Smoke Test"
+            runDir = "run/server"
+            programArgs "--nogui"
+        }
+    }
+}
 repositories {}
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
